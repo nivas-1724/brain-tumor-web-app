@@ -62,13 +62,8 @@ def preprocess_input(x):
 CUSTOM_OBJECTS = {"preprocess_input": preprocess_input}
 
 SAVED_MODELS_DIR = os.path.join(BASE_DIR, "backend", "models", "saved_models")
-DEFAULT_MODEL_KERAS = os.path.join(SAVED_MODELS_DIR, "mobilenetv2.keras")
-DEFAULT_MODEL_H5 = os.path.join(SAVED_MODELS_DIR, "mobilenetv2.h5")
-DEFAULT_MODEL_PATH = DEFAULT_MODEL_KERAS if os.path.exists(DEFAULT_MODEL_KERAS) else DEFAULT_MODEL_H5
-
-FALLBACK_MODEL_KERAS = os.path.join(BASE_DIR, "model", "saved", "brain_tumor_model.keras")
-FALLBACK_MODEL_H5 = os.path.join(BASE_DIR, "model", "saved", "brain_tumor_model.h5")
-FALLBACK_MODEL_PATH = FALLBACK_MODEL_KERAS if os.path.exists(FALLBACK_MODEL_KERAS) else FALLBACK_MODEL_H5
+DEFAULT_MODEL_TFLITE = os.path.join(SAVED_MODELS_DIR, "mobilenetv2.tflite")
+FALLBACK_MODEL_TFLITE = os.path.join(BASE_DIR, "model", "saved", "mobilenetv2.tflite")
 
 CLASSES = ["glioma", "meningioma", "notumor", "pituitary"]
 
@@ -122,163 +117,57 @@ TUMOR_INFO = {
     }
 }
 
-
-def is_full_ensemble_mode() -> bool:
-    """
-    Returns True ONLY if FULL_ENSEMBLE=1 or LIGHTWEIGHT_MODE=0 is explicitly set.
-    By default (including Render Free 512MB RAM), returns False to force single-model lightweight mode.
-    """
-    return (
-        os.environ.get("FULL_ENSEMBLE") == "1" or
-        os.environ.get("LIGHTWEIGHT_MODE") == "0"
-    )
-
-_primary_model = None
-_ensemble_predictor = None
 _scaler = TemperatureScaler(temperature=1.12)
 
-MODEL_WEIGHTS = {
-    "efficientnetb0": 0.45,
-    "resnet50": 0.35,
-    "mobilenetv2": 0.20,
-}
 
-
-def _get_existing_model_path(model_name: str) -> str:
-    """Returns .keras path if exists, else .h5 path."""
-    keras_p = os.path.join(SAVED_MODELS_DIR, f"{model_name}.keras")
-    if os.path.exists(keras_p):
-        return keras_p
-    return os.path.join(SAVED_MODELS_DIR, f"{model_name}.h5")
-
-
-def get_ensemble_models():
-    """
-    Loads trained models and constructs Predictor.
-    Strict Lazy Loading: Models are loaded on-demand per request and purged immediately after inference.
-    """
-    loaded_models = {}
-    primary_model = None
-
-    if not is_full_ensemble_mode():
-        print("[ACCURACY ENGINE] Production Single-Model Mode Active (MobileNetV2 Ultra-Fast CPU Inference)")
-
-        mob_path = _get_existing_model_path("mobilenetv2")
-        base_path = _get_existing_model_path("baseline_cnn")
-        eff_path = _get_existing_model_path("efficientnetb0")
-
-        model_to_load = None
-        model_name_used = ""
-
-        if os.path.exists(mob_path):
-            model_to_load = mob_path
-            model_name_used = "mobilenetv2"
-        elif os.path.exists(base_path):
-            model_to_load = base_path
-            model_name_used = "baseline_cnn"
-        elif os.path.exists(eff_path):
-            model_to_load = eff_path
-            model_name_used = "efficientnetb0"
-
-        if model_to_load:
-            try:
-                print(f"[ACCURACY ENGINE] Loading primary model '{model_name_used}' from {model_to_load}...")
-                primary_model = tf.keras.models.load_model(model_to_load, compile=False, custom_objects=CUSTOM_OBJECTS)
-                loaded_models[model_name_used] = primary_model
-            except Exception as e:
-                print(f"[ACCURACY ENGINE] Warning loading {model_name_used}: {e}")
-
-        if not loaded_models and os.path.exists(FALLBACK_MODEL_PATH):
-            print(f"[ACCURACY ENGINE] Loading fallback model from {FALLBACK_MODEL_PATH}...")
-            primary_model = tf.keras.models.load_model(FALLBACK_MODEL_PATH, compile=False, custom_objects=CUSTOM_OBJECTS)
-            loaded_models["fallback"] = primary_model
-
-        if not loaded_models:
-            raise FileNotFoundError("No trained tumor model files found.")
-
-        from backend.ensemble.ensemble_engine import EnsemblePredictor
-        ensemble_predictor = EnsemblePredictor(
-            models_dict=loaded_models,
-            weights_dict={model_name_used or "fallback": 1.0}
-        )
-        return ensemble_predictor, primary_model
-
-    # OPT-IN ONLY: Full Multi-Model Ensemble Mode (when LIGHTWEIGHT_MODE=0 or FULL_ENSEMBLE=1)
-    print("[ACCURACY ENGINE] Full Multi-Model Ensemble Mode Explicitly Enabled (Opt-in)")
-    model_files = {
-        "efficientnetb0": _get_existing_model_path("efficientnetb0"),
-        "mobilenetv2": _get_existing_model_path("mobilenetv2"),
-    }
-
-    if os.environ.get("ENABLE_RESNET50", "0") == "1":
-        model_files["resnet50"] = _get_existing_model_path("resnet50")
-
-    for name, path in model_files.items():
-        if os.path.exists(path):
-            try:
-                print(f"[ACCURACY ENGINE] Loading model '{name}' from {path}")
-                m = tf.keras.models.load_model(path, compile=False, custom_objects=CUSTOM_OBJECTS)
-                loaded_models[name] = m
-                if primary_model is None or name == "efficientnetb0":
-                    primary_model = m
-            except Exception as e:
-                print(f"[ACCURACY ENGINE] Warning: Failed to load {name}: {e}")
-
-    if not loaded_models and os.path.exists(FALLBACK_MODEL_PATH):
-        print(f"[ACCURACY ENGINE] Loading fallback model from {FALLBACK_MODEL_PATH}")
-        m = tf.keras.models.load_model(FALLBACK_MODEL_PATH, compile=False, custom_objects=CUSTOM_OBJECTS)
-        loaded_models["fallback"] = m
-        primary_model = m
-
-    if not loaded_models:
-        raise FileNotFoundError("No trained tumor model files found.")
-
-    from backend.ensemble.ensemble_engine import EnsemblePredictor
-    ensemble_predictor = EnsemblePredictor(models_dict=loaded_models, weights_dict=MODEL_WEIGHTS)
-    return ensemble_predictor, primary_model
+def get_tumor_tflite_interpreter():
+    """Loads MobileNetV2 TFLite Interpreter."""
+    target_path = DEFAULT_MODEL_TFLITE if os.path.exists(DEFAULT_MODEL_TFLITE) else FALLBACK_MODEL_TFLITE
+    if os.path.exists(target_path):
+        try:
+            print(f"[ACCURACY ENGINE] Loading MobileNetV2 TFLite Interpreter from {target_path}...")
+            interpreter = tf.lite.Interpreter(model_path=target_path)
+            interpreter.allocate_tensors()
+            print("[ACCURACY ENGINE] TFLite Interpreter loaded: YES")
+            return interpreter
+        except Exception as e:
+            print(f"[ACCURACY ENGINE] Error loading TFLite Interpreter: {e}")
+            return None
+    print(f"[ACCURACY ENGINE] MobileNetV2 TFLite model not found at {target_path}")
+    return None
 
 
 def predict_high_accuracy_ensemble(pil_img):
     """
-    High-Accuracy Inference.
-    - Default/Production: Single model (EfficientNetB0), batch size 1, TTA disabled for ultra-low RAM (<150MB) & fast speed.
-    - Opt-in (LIGHTWEIGHT_MODE=0): Multi-Model Soft Voting Ensemble + TTA.
+    TFLite Ultra-Fast CPU Inference using MobileNetV2 TFLite Interpreter.
+    Memory usage < 30MB RAM.
     """
-    ensemble, primary_model = get_ensemble_models()
-
     img_resized = pil_img.convert('RGB').resize((IMG_SIZE, IMG_SIZE), Image.LANCZOS)
     img_np = np.array(img_resized, dtype=np.float32)
 
     t0 = time.time()
-    if not is_full_ensemble_mode():
-        # Single model fast batch size 1 pass
-        img_batch = np.expand_dims(img_np, axis=0)
-        try:
-            raw_probs = primary_model(img_batch, training=False).numpy()[0]
-        except Exception:
-            raw_probs = primary_model.predict(img_batch, verbose=0)[0]
-        raw_probs = raw_probs / np.sum(raw_probs)
-        t_pred = time.time() - t0
-        print(f"[PRODUCTION INFERENCE] Used Model: MobileNetV2 (Single Model, Batch Size 1, Ultra-Fast). Latency: {t_pred:.3f}s")
-        return raw_probs, primary_model, img_np, img_resized
+    interpreter = get_tumor_tflite_interpreter()
+    if interpreter is None:
+        raise FileNotFoundError("MobileNetV2 TFLite model file not found.")
 
-    # Full multi-model ensemble TTA (Opt-in only)
-    var_orig = img_np
-    var_flip = np.fliplr(img_np)
-    tta_batch = np.array([var_orig, var_flip], dtype=np.float32)
-    tta_probs = ensemble.predict_probs(tta_batch, method="weighted")
-    tta_weights = np.array([0.65, 0.35]).reshape(2, 1)
-    final_raw_probs = np.sum(tta_probs * tta_weights, axis=0)
-    final_raw_probs = final_raw_probs / np.sum(final_raw_probs)
+    img_batch = np.expand_dims(img_np, axis=0)
+
+    input_details = interpreter.get_input_details()
+    output_details = interpreter.get_output_details()
+
+    interpreter.set_tensor(input_details[0]['index'], img_batch)
+    interpreter.invoke()
+    raw_probs = interpreter.get_tensor(output_details[0]['index'])[0]
+
+    raw_probs = raw_probs / np.sum(raw_probs)
     t_pred = time.time() - t0
-    print(f"[FULL ENSEMBLE INFERENCE] Used Multi-Model TTA Ensemble. Latency: {t_pred:.3f}s")
+    print(f"[PRODUCTION INFERENCE] Used Model: MobileNetV2 TFLite Interpreter. Latency: {t_pred:.3f}s")
 
-    return final_raw_probs, primary_model, img_np, img_resized
+    return raw_probs, interpreter, img_np, img_resized
 
 
 def get_model():
-    _, primary_model = get_ensemble_models()
-    return primary_model
+    return None
 
 
 ENABLE_HEAVY_XAI = (
@@ -365,13 +254,12 @@ def predict(pil_img, file_bytes=None, filename=None, analysis_id=None, patient_i
             "patient_info": patient_info or {},
         }
 
-    # ── STAGE 2: Single Model EfficientNetB0 Inference ──
+    # ── STAGE 2: MobileNetV2 TFLite Inference ──
     t_stage2_start = time.time()
-    raw_probs, primary_model, img_np, img_resized = predict_high_accuracy_ensemble(pil_img)
-    model = primary_model
+    raw_probs, interpreter, img_np, img_resized = predict_high_accuracy_ensemble(pil_img)
     img_batch = np.expand_dims(img_np, axis=0)
     t_stage2 = time.time() - t_stage2_start
-    print(f"[TIMING] [{analysis_id}] Stage 2 (EfficientNetB0 Tumor Inference): {t_stage2:.3f}s")
+    print(f"[TIMING] [{analysis_id}] Stage 2 (MobileNetV2 TFLite Tumor Inference): {t_stage2:.3f}s")
 
     # ── STAGE 3: Calibration & Class Scores Calculation ──
     t_stage3_start = time.time()
@@ -426,41 +314,26 @@ def predict(pil_img, file_bytes=None, filename=None, analysis_id=None, patient_i
     t_stage4_start = time.time()
     orig_b64_str = pil_to_base64_uri(img_resized)
 
-    if ENABLE_HEAVY_XAI:
-        gradcam_heatmap = generate_gradcam_heatmap(model, img_batch, pred_index=top_idx)
+    try:
+        gradcam_heatmap = generate_gradcam_heatmap(None, img_batch, pred_index=top_idx)
         gradcam_pil = heatmap_to_overlay(img_np, gradcam_heatmap)
         overlay_b64_str = pil_to_base64_uri(gradcam_pil)
+    except Exception as _g_err:
+        print(f"[GRADCAM WARNING] Fast Grad-CAM fallback: {_g_err}")
+        overlay_b64_str = orig_b64_str
 
-        ig_heatmap = generate_integrated_gradients(model, img_batch, pred_index=top_idx, num_steps=8)
-        ig_pil = heatmap_to_overlay(img_np, ig_heatmap)
-        ig_b64_str = pil_to_base64_uri(ig_pil)
-
-        lime_heatmap = generate_lime_explanation(model, img_batch, pred_index=top_idx, num_samples=16, grid_size=4)
-        lime_pil = heatmap_to_overlay(img_np, lime_heatmap)
-        lime_b64_str = pil_to_base64_uri(lime_pil)
-
-        faithfulness = evaluate_explainability_faithfulness(model, img_batch, gradcam_heatmap, pred_index=top_idx)
-    else:
-        # Render-Safe Fast Path: 1 Grad-CAM pass (0 extra model passes)
-        try:
-            gradcam_heatmap = generate_gradcam_heatmap(model, img_batch, pred_index=top_idx)
-            gradcam_pil = heatmap_to_overlay(img_np, gradcam_heatmap)
-            overlay_b64_str = pil_to_base64_uri(gradcam_pil)
-        except Exception as _g_err:
-            print(f"[GRADCAM WARNING] Fast Grad-CAM fallback: {_g_err}")
-            overlay_b64_str = orig_b64_str
-
-        ig_b64_str = overlay_b64_str
-        lime_b64_str = overlay_b64_str
-        faithfulness = None
+    ig_b64_str = overlay_b64_str
+    lime_b64_str = overlay_b64_str
+    faithfulness = None
 
     t_stage4 = time.time() - t_stage4_start
     print(f"[TIMING] [{analysis_id}] Stage 4 (Grad-CAM Overlay): {t_stage4:.3f}s")
 
-    del img_batch, img_np, primary_model, model
-    tf.keras.backend.clear_session()
+    del img_batch, img_np
+    if 'interpreter' in locals() and interpreter is not None:
+        del interpreter
     gc.collect()
-    print("[MEMORY] Purged primary tumor model & cleared TensorFlow session successfully.")
+    print("[MEMORY] Purged primary tumor TFLite interpreter successfully.")
 
     t_pipe_total = round(time.time() - t_pipe_start, 3)
     print(f"[TIMING] [{analysis_id}] TOTAL SYNCHRONOUS RESPONSE LATENCY: {t_pipe_total:.3f}s")

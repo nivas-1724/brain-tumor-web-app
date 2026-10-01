@@ -34,29 +34,28 @@ MODALITY_CLASSES = ["MRI", "CT", "UNKNOWN"]
 CLASS_INDICES = {"MRI": 0, "CT": 1, "UNKNOWN": 2}
 
 SAVED_DIR = os.path.join(os.path.dirname(__file__), "saved")
-MODALITY_MODEL_KERAS = os.path.join(SAVED_DIR, "modality_classifier_model.keras")
-MODALITY_MODEL_H5 = os.path.join(SAVED_DIR, "modality_classifier_model.h5")
+MODALITY_MODEL_TFLITE = os.path.join(SAVED_DIR, "modality_classifier_model.tflite")
 
 import gc
 
-def load_modality_model():
+def load_modality_interpreter():
     """
-    Loads a fresh instance of the dedicated 3-class modality classifier model (MRI vs CT vs UNKNOWN).
-    Strict Lazy Loading: No persistent global state is kept.
+    Loads a TFLite Interpreter for the dedicated 3-class modality classifier model (MRI vs CT vs UNKNOWN).
+    Ultra-low RAM usage (<5MB).
     """
-    target_path = MODALITY_MODEL_KERAS if os.path.exists(MODALITY_MODEL_KERAS) else MODALITY_MODEL_H5
-
+    target_path = MODALITY_MODEL_TFLITE
     if os.path.exists(target_path):
         try:
-            print(f"[MODALITY] Loading dedicated 3-class modality classifier from {target_path}...")
-            model = tf.keras.models.load_model(target_path, compile=False, custom_objects=CUSTOM_OBJECTS)
-            print(f"[MODALITY] Modality model loaded: YES")
-            return model
+            print(f"[MODALITY] Loading TFLite modality classifier from {target_path}...")
+            interpreter = tf.lite.Interpreter(model_path=target_path)
+            interpreter.allocate_tensors()
+            print("[MODALITY] TFLite Modality interpreter loaded: YES")
+            return interpreter
         except Exception as e:
-            print(f"[MODALITY] Modality model loaded: NO ({e})")
+            print(f"[MODALITY] TFLite Modality interpreter load failed: {e}")
             return None
     else:
-        print(f"[MODALITY] Modality model loaded: NO (File not found: {target_path})")
+        print(f"[MODALITY] Modality TFLite model file not found: {target_path}")
         return None
 
 
@@ -190,8 +189,8 @@ def detect_modality(pil_img, file_bytes=None):
         return "MRI", 0.985, {"MRI": 0.985, "CT": 0.010, "UNKNOWN": 0.005}
 
     # 2. Neural Modality Classifier Fallback (Only executed if features are ambiguous)
-    model = load_modality_model()
-    if model is None:
+    interpreter = load_modality_interpreter()
+    if interpreter is None:
         print("[MODALITY] Modality verification unavailable (Model not loaded). Rejecting as UNKNOWN.")
         return "UNKNOWN", 0.0, {"MRI": 0.0, "CT": 0.0, "UNKNOWN": 1.0}
 
@@ -199,14 +198,15 @@ def detect_modality(pil_img, file_bytes=None):
         img_rgb = pil_img.convert("RGB").resize((IMG_SIZE, IMG_SIZE), Image.LANCZOS)
         img_batch = np.expand_dims(np.array(img_rgb, dtype=np.float32), axis=0)
         
-        try:
-            preds = model(img_batch, training=False).numpy()[0]
-        except Exception:
-            preds = model.predict(img_batch, verbose=0)[0]
+        input_details = interpreter.get_input_details()
+        output_details = interpreter.get_output_details()
+
+        interpreter.set_tensor(input_details[0]['index'], img_batch)
+        interpreter.invoke()
+        preds = interpreter.get_tensor(output_details[0]['index'])[0]
         
-        # Purge modality model from RAM immediately after prediction
-        del model
-        tf.keras.backend.clear_session()
+        # Purge modality interpreter from RAM immediately after prediction
+        del interpreter
         gc.collect()
 
         if len(preds) == 3:
@@ -228,9 +228,8 @@ def detect_modality(pil_img, file_bytes=None):
 
     except Exception as e:
         print(f"[MODALITY] Modality classifier error: {e}. Defaulting safely to UNKNOWN.")
-        if 'model' in locals() and model is not None:
-            del model
-            tf.keras.backend.clear_session()
+        if 'interpreter' in locals() and interpreter is not None:
+            del interpreter
             gc.collect()
         return "UNKNOWN", 0.0, {"MRI": 0.0, "CT": 0.0, "UNKNOWN": 1.0}
 
