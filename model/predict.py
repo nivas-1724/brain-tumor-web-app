@@ -60,8 +60,8 @@ def preprocess_input(x):
 CUSTOM_OBJECTS = {"preprocess_input": preprocess_input}
 
 SAVED_MODELS_DIR = os.path.join(BASE_DIR, "backend", "models", "saved_models")
-DEFAULT_MODEL_KERAS = os.path.join(SAVED_MODELS_DIR, "efficientnetb0.keras")
-DEFAULT_MODEL_H5 = os.path.join(SAVED_MODELS_DIR, "efficientnetb0.h5")
+DEFAULT_MODEL_KERAS = os.path.join(SAVED_MODELS_DIR, "mobilenetv2.keras")
+DEFAULT_MODEL_H5 = os.path.join(SAVED_MODELS_DIR, "mobilenetv2.h5")
 DEFAULT_MODEL_PATH = DEFAULT_MODEL_KERAS if os.path.exists(DEFAULT_MODEL_KERAS) else DEFAULT_MODEL_H5
 
 FALLBACK_MODEL_KERAS = os.path.join(BASE_DIR, "model", "saved", "brain_tumor_model.keras")
@@ -159,16 +159,32 @@ def get_ensemble_models():
     primary_model = None
 
     if not is_full_ensemble_mode():
-        print("[ACCURACY ENGINE] Production Single-Model Mode Active (Optimized for 512MB RAM target)")
+        print("[ACCURACY ENGINE] Production Single-Model Mode Active (MobileNetV2 Ultra-Fast CPU Inference)")
 
+        mob_path = _get_existing_model_path("mobilenetv2")
+        base_path = _get_existing_model_path("baseline_cnn")
         eff_path = _get_existing_model_path("efficientnetb0")
-        if os.path.exists(eff_path):
+
+        model_to_load = None
+        model_name_used = ""
+
+        if os.path.exists(mob_path):
+            model_to_load = mob_path
+            model_name_used = "mobilenetv2"
+        elif os.path.exists(base_path):
+            model_to_load = base_path
+            model_name_used = "baseline_cnn"
+        elif os.path.exists(eff_path):
+            model_to_load = eff_path
+            model_name_used = "efficientnetb0"
+
+        if model_to_load:
             try:
-                print(f"[ACCURACY ENGINE] Loading primary model 'efficientnetb0' from {eff_path}...")
-                primary_model = tf.keras.models.load_model(eff_path, compile=False, custom_objects=CUSTOM_OBJECTS)
-                loaded_models["efficientnetb0"] = primary_model
+                print(f"[ACCURACY ENGINE] Loading primary model '{model_name_used}' from {model_to_load}...")
+                primary_model = tf.keras.models.load_model(model_to_load, compile=False, custom_objects=CUSTOM_OBJECTS)
+                loaded_models[model_name_used] = primary_model
             except Exception as e:
-                print(f"[ACCURACY ENGINE] Warning loading efficientnetb0: {e}")
+                print(f"[ACCURACY ENGINE] Warning loading {model_name_used}: {e}")
 
         if not loaded_models and os.path.exists(FALLBACK_MODEL_PATH):
             print(f"[ACCURACY ENGINE] Loading fallback model from {FALLBACK_MODEL_PATH}...")
@@ -181,7 +197,7 @@ def get_ensemble_models():
         from backend.ensemble.ensemble_engine import EnsemblePredictor
         ensemble_predictor = EnsemblePredictor(
             models_dict=loaded_models,
-            weights_dict={"efficientnetb0": 1.0, "fallback": 1.0}
+            weights_dict={model_name_used or "fallback": 1.0}
         )
         return ensemble_predictor, primary_model
 
@@ -241,7 +257,7 @@ def predict_high_accuracy_ensemble(pil_img):
             raw_probs = primary_model.predict(img_batch, verbose=0)[0]
         raw_probs = raw_probs / np.sum(raw_probs)
         t_pred = time.time() - t0
-        print(f"[PRODUCTION INFERENCE] Used Model: EfficientNetB0 (Single Model, Batch Size 1, TTA Disabled). Latency: {t_pred:.3f}s")
+        print(f"[PRODUCTION INFERENCE] Used Model: MobileNetV2 (Single Model, Batch Size 1, Ultra-Fast). Latency: {t_pred:.3f}s")
         return raw_probs, primary_model, img_np, img_resized
 
     # Full multi-model ensemble TTA (Opt-in only)
@@ -485,7 +501,7 @@ def predict(pil_img, file_bytes=None, filename=None, analysis_id=None, patient_i
             "lime": lime_b64_str,
         },
         "faithfulness": faithfulness,
-        "model_used": "Single Model EfficientNetB0 (Render Free Fast Inference)",
+        "model_used": "Single Model MobileNetV2 (Render Free Ultra-Fast Inference)",
         "pipeline_latency_sec": t_pipe_total,
         "patient_info": patient_info or {},
     }
