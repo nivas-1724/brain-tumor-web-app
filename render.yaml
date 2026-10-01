@@ -11,3 +11,7 @@ services:
         value: "1"
       - key: MALLOC_TRIM_THRESHOLD_
         value: "100000"
+      - key: CUDA_VISIBLE_DEVICES
+        value: "-1"
+      - key: TF_CPP_MIN_LOG_LEVEL
+        value: "2"

@@ -5,6 +5,8 @@ Includes Multi-Stage Modality Rejection (MRI vs CT vs Unknown) & MRI Quality Ver
 """
 
 import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 import sys
 import json
 import numpy as np

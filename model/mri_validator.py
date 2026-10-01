@@ -8,6 +8,8 @@ Strict Multi-Stage Input Filter:
 """
 
 import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 import sys
 import io
 import numpy as np
