@@ -28,56 +28,58 @@ def find_target_conv_layer(model):
 def generate_gradcam_heatmap(model, img_batch, pred_index=None):
     """
     Generates Grad-CAM activation heatmap for the target predicted class.
-    img_batch: (1, 224, 224, 3) [0..255]
+    Memory-safe for low-RAM (512MB) CPU environments.
     """
-    grad_model = getattr(model, "_cached_grad_model", None)
-    if grad_model is None:
+    if model is None:
+        return np.zeros((224, 224), dtype=np.float32)
+
+    try:
         target_layer_name = find_target_conv_layer(model)
         if not target_layer_name:
             return np.zeros((224, 224), dtype=np.float32)
 
+        conv_layer = None
         try:
             conv_layer = model.get_layer(target_layer_name)
-            grad_model = tf.keras.models.Model(
-                inputs=[model.inputs],
-                outputs=[conv_layer.output, model.output]
-            )
         except Exception:
             for layer in model.layers:
                 if hasattr(layer, 'layers'):
                     try:
                         conv_layer = layer.get_layer(target_layer_name)
-                        grad_model = tf.keras.models.Model(
-                            inputs=[model.inputs],
-                            outputs=[conv_layer.output, model.output]
-                        )
                         break
                     except Exception:
                         pass
 
-        if grad_model is not None:
-            model._cached_grad_model = grad_model
+        if conv_layer is None:
+            return np.zeros((224, 224), dtype=np.float32)
 
-    if grad_model is None:
+        grad_model = tf.keras.models.Model(
+            inputs=[model.inputs],
+            outputs=[conv_layer.output, model.output]
+        )
+
+        with tf.GradientTape() as tape:
+            conv_outputs, predictions = grad_model(img_batch)
+            if pred_index is None:
+                pred_index = tf.argmax(predictions[0])
+            class_channel = predictions[:, pred_index]
+
+        grads = tape.gradient(class_channel, conv_outputs)
+        pooled_grads = tf.reduce_mean(grads, axis=(0, 1, 2))
+
+        conv_outputs = conv_outputs[0]
+        heatmap = conv_outputs @ pooled_grads[..., tf.newaxis]
+        heatmap = tf.squeeze(heatmap)
+
+        heatmap = tf.maximum(heatmap, 0) / (tf.reduce_max(heatmap) + 1e-10)
+        heatmap_np = heatmap.numpy()
+        heatmap_resized = cv2.resize(heatmap_np, (224, 224))
+
+        del grad_model
+        return heatmap_resized
+    except Exception as e:
+        print(f"[GRADCAM WARNING] Heatmap generation warning: {e}")
         return np.zeros((224, 224), dtype=np.float32)
-
-    with tf.GradientTape() as tape:
-        conv_outputs, predictions = grad_model(img_batch)
-        if pred_index is None:
-            pred_index = tf.argmax(predictions[0])
-        class_channel = predictions[:, pred_index]
-
-    grads = tape.gradient(class_channel, conv_outputs)
-    pooled_grads = tf.reduce_mean(grads, axis=(0, 1, 2))
-
-    conv_outputs = conv_outputs[0]
-    heatmap = conv_outputs @ pooled_grads[..., tf.newaxis]
-    heatmap = tf.squeeze(heatmap)
-
-    heatmap = tf.maximum(heatmap, 0) / (tf.reduce_max(heatmap) + 1e-10)
-    heatmap_np = heatmap.numpy()
-    heatmap_resized = cv2.resize(heatmap_np, (224, 224))
-    return heatmap_resized
 
 
 def generate_integrated_gradients(model, img_batch, pred_index=None, num_steps=8):

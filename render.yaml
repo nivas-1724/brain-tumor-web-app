@@ -9,3 +9,5 @@ services:
         value: 3.11.0
       - key: LIGHTWEIGHT_MODE
         value: "1"
+      - key: MALLOC_TRIM_THRESHOLD_
+        value: "100000"
