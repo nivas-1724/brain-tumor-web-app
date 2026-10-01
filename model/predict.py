@@ -153,16 +153,10 @@ def _get_existing_model_path(model_name: str) -> str:
 def get_ensemble_models():
     """
     Loads trained models and constructs Predictor.
-    Memory Safety Strategy:
-    - Default / Production (Render Free 512MB RAM): Loads ONLY 1 primary model ('efficientnetb0.keras' or 'efficientnetb0.h5').
-      NEVER loads 'mobilenetv2' or 'resnet50'.
-    - Full Ensemble Mode (Opt-in via LIGHTWEIGHT_MODE=0 or FULL_ENSEMBLE=1): Loads multi-model ensemble.
+    Strict Lazy Loading: Models are loaded on-demand per request and purged immediately after inference.
     """
-    global _ensemble_predictor, _primary_model
-    if _ensemble_predictor is not None and _primary_model is not None:
-        return _ensemble_predictor, _primary_model
-
     loaded_models = {}
+    primary_model = None
 
     if not is_full_ensemble_mode():
         print("[ACCURACY ENGINE] Production Single-Model Mode Active (Optimized for 512MB RAM target)")
@@ -171,25 +165,25 @@ def get_ensemble_models():
         if os.path.exists(eff_path):
             try:
                 print(f"[ACCURACY ENGINE] Loading primary model 'efficientnetb0' from {eff_path}...")
-                _primary_model = tf.keras.models.load_model(eff_path, compile=False, custom_objects=CUSTOM_OBJECTS)
-                loaded_models["efficientnetb0"] = _primary_model
+                primary_model = tf.keras.models.load_model(eff_path, compile=False, custom_objects=CUSTOM_OBJECTS)
+                loaded_models["efficientnetb0"] = primary_model
             except Exception as e:
                 print(f"[ACCURACY ENGINE] Warning loading efficientnetb0: {e}")
 
         if not loaded_models and os.path.exists(FALLBACK_MODEL_PATH):
             print(f"[ACCURACY ENGINE] Loading fallback model from {FALLBACK_MODEL_PATH}...")
-            _primary_model = tf.keras.models.load_model(FALLBACK_MODEL_PATH, compile=False, custom_objects=CUSTOM_OBJECTS)
-            loaded_models["fallback"] = _primary_model
+            primary_model = tf.keras.models.load_model(FALLBACK_MODEL_PATH, compile=False, custom_objects=CUSTOM_OBJECTS)
+            loaded_models["fallback"] = primary_model
 
         if not loaded_models:
             raise FileNotFoundError("No trained tumor model files found.")
 
         from backend.ensemble.ensemble_engine import EnsemblePredictor
-        _ensemble_predictor = EnsemblePredictor(
+        ensemble_predictor = EnsemblePredictor(
             models_dict=loaded_models,
             weights_dict={"efficientnetb0": 1.0, "fallback": 1.0}
         )
-        return _ensemble_predictor, _primary_model
+        return ensemble_predictor, primary_model
 
     # OPT-IN ONLY: Full Multi-Model Ensemble Mode (when LIGHTWEIGHT_MODE=0 or FULL_ENSEMBLE=1)
     print("[ACCURACY ENGINE] Full Multi-Model Ensemble Mode Explicitly Enabled (Opt-in)")
@@ -207,8 +201,8 @@ def get_ensemble_models():
                 print(f"[ACCURACY ENGINE] Loading model '{name}' from {path}")
                 m = tf.keras.models.load_model(path, compile=False, custom_objects=CUSTOM_OBJECTS)
                 loaded_models[name] = m
-                if _primary_model is None or name == "efficientnetb0":
-                    _primary_model = m
+                if primary_model is None or name == "efficientnetb0":
+                    primary_model = m
             except Exception as e:
                 print(f"[ACCURACY ENGINE] Warning: Failed to load {name}: {e}")
 
@@ -216,14 +210,14 @@ def get_ensemble_models():
         print(f"[ACCURACY ENGINE] Loading fallback model from {FALLBACK_MODEL_PATH}")
         m = tf.keras.models.load_model(FALLBACK_MODEL_PATH, compile=False, custom_objects=CUSTOM_OBJECTS)
         loaded_models["fallback"] = m
-        _primary_model = m
+        primary_model = m
 
     if not loaded_models:
         raise FileNotFoundError("No trained tumor model files found.")
 
     from backend.ensemble.ensemble_engine import EnsemblePredictor
-    _ensemble_predictor = EnsemblePredictor(models_dict=loaded_models, weights_dict=MODEL_WEIGHTS)
-    return _ensemble_predictor, _primary_model
+    ensemble_predictor = EnsemblePredictor(models_dict=loaded_models, weights_dict=MODEL_WEIGHTS)
+    return ensemble_predictor, primary_model
 
 
 def predict_high_accuracy_ensemble(pil_img):
@@ -445,8 +439,10 @@ def predict(pil_img, file_bytes=None, filename=None, analysis_id=None, patient_i
     t_stage4 = time.time() - t_stage4_start
     print(f"[TIMING] [{analysis_id}] Stage 4 (Grad-CAM Overlay): {t_stage4:.3f}s")
 
-    del img_batch, img_np
+    del img_batch, img_np, primary_model, model
+    tf.keras.backend.clear_session()
     gc.collect()
+    print("[MEMORY] Purged primary tumor model & cleared TensorFlow session successfully.")
 
     t_pipe_total = round(time.time() - t_pipe_start, 3)
     print(f"[TIMING] [{analysis_id}] TOTAL SYNCHRONOUS RESPONSE LATENCY: {t_pipe_total:.3f}s")

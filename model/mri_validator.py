@@ -35,39 +35,27 @@ SAVED_DIR = os.path.join(os.path.dirname(__file__), "saved")
 MODALITY_MODEL_KERAS = os.path.join(SAVED_DIR, "modality_classifier_model.keras")
 MODALITY_MODEL_H5 = os.path.join(SAVED_DIR, "modality_classifier_model.h5")
 
-_modality_model = None
-_modality_model_loaded = False
-
+import gc
 
 def load_modality_model():
     """
-    Loads the dedicated 3-class modality classifier model (MRI vs CT vs UNKNOWN).
-    Supports native .keras and legacy .h5 model formats with custom objects registration.
+    Loads a fresh instance of the dedicated 3-class modality classifier model (MRI vs CT vs UNKNOWN).
+    Strict Lazy Loading: No persistent global state is kept.
     """
-    global _modality_model, _modality_model_loaded
-    if _modality_model is not None:
-        return _modality_model
-
     target_path = MODALITY_MODEL_KERAS if os.path.exists(MODALITY_MODEL_KERAS) else MODALITY_MODEL_H5
 
     if os.path.exists(target_path):
         try:
             print(f"[MODALITY] Loading dedicated 3-class modality classifier from {target_path}...")
-            _modality_model = tf.keras.models.load_model(target_path, compile=False, custom_objects=CUSTOM_OBJECTS)
-            _modality_model_loaded = True
+            model = tf.keras.models.load_model(target_path, compile=False, custom_objects=CUSTOM_OBJECTS)
             print(f"[MODALITY] Modality model loaded: YES")
-            print(f"[MODALITY] Modality model path: {target_path}")
-            print(f"[MODALITY] Modality model classes: {MODALITY_CLASSES}")
+            return model
         except Exception as e:
             print(f"[MODALITY] Modality model loaded: NO ({e})")
-            _modality_model = None
-            _modality_model_loaded = False
+            return None
     else:
         print(f"[MODALITY] Modality model loaded: NO (File not found: {target_path})")
-        _modality_model = None
-        _modality_model_loaded = False
-
-    return _modality_model
+        return None
 
 
 def inspect_dicom_metadata(file_bytes):
@@ -195,6 +183,11 @@ def detect_modality(pil_img, file_bytes=None):
         except Exception:
             preds = model.predict(img_batch, verbose=0)[0]
         
+        # Purge modality model from RAM immediately after prediction
+        del model
+        tf.keras.backend.clear_session()
+        gc.collect()
+
         if len(preds) == 3:
             p_mri, p_ct, p_unk = float(preds[0]), float(preds[1]), float(preds[2])
         else:
@@ -241,6 +234,10 @@ def detect_modality(pil_img, file_bytes=None):
 
     except Exception as e:
         print(f"[MODALITY] Modality classifier error: {e}. Defaulting safely to UNKNOWN.")
+        if 'model' in locals() and model is not None:
+            del model
+            tf.keras.backend.clear_session()
+            gc.collect()
         return "UNKNOWN", 0.0, {"MRI": 0.0, "CT": 0.0, "UNKNOWN": 1.0}
 
 

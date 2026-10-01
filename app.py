@@ -75,35 +75,13 @@ def decode_image_bytes(file_bytes: bytes, filename: str = "") -> Image.Image:
 
     return Image.open(io.BytesIO(file_bytes)).convert("RGB")
 
-# Pre-load & warm-up AI models once at application startup for low-RAM efficiency
-try:
-    import time
-    import gc
-    t_start_load = time.time()
-    print("[STARTUP] Pre-loading AI models into memory...")
-    from model.mri_validator import load_modality_model
-    from model.predict import get_ensemble_models
-    
-    mod_model = load_modality_model()
-    ens_pred, prim_model = get_ensemble_models()
-    
-    # Warm-up TensorFlow execution graph once at startup
-    dummy_input = np.zeros((1, 224, 224, 3), dtype=np.float32)
-    if mod_model is not None:
-        try:
-            _ = mod_model(dummy_input, training=False)
-        except Exception:
-            pass
-    if prim_model is not None:
-        try:
-            _ = prim_model(dummy_input, training=False)
-        except Exception:
-            pass
-            
-    print(f"[STARTUP] AI models pre-loaded and warmed up in {time.time() - t_start_load:.2f}s successfully.")
-    gc.collect()
-except Exception as _preload_err:
-    print(f"[STARTUP] Model pre-loading warning: {_preload_err}")
+# Global model pre-loading disabled for ultra-low RAM (512MB RAM Render Free Tier).
+# Strict Lazy Loading is enforced: models are loaded on-demand during inference and purged immediately.
+print("[STARTUP] Global model pre-loading disabled (Strict Lazy Loading & Memory Purge Active).")
+import gc
+import tensorflow as tf
+tf.keras.backend.clear_session()
+gc.collect()
 
 app = Flask(__name__, static_folder="frontend", static_url_path="")
 CORS(app, resources={r"/api/*": {"origins": "*"}})
