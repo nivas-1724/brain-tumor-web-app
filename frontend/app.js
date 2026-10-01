@@ -313,11 +313,15 @@ function initTabNavigation() {
 // ─────────────────────────────────────────────
 // SERVER HEALTH CHECK
 // ─────────────────────────────────────────────
-async function checkServerHealth() {
+async function checkServerHealth(retries = 2) {
   const dot = document.querySelector(".status-dot");
   const text = $("statusText");
   try {
-    const res = await fetch(`${API_BASE}/health`);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    const res = await fetch(`${API_BASE}/health`, { signal: controller.signal });
+    clearTimeout(timeoutId);
+
     if (res.ok) {
       if (dot) dot.classList.add("online");
       if (text) text.textContent = "Server Ready";
@@ -326,8 +330,13 @@ async function checkServerHealth() {
       if (dot) dot.classList.remove("online");
     }
   } catch (err) {
-    if (text) text.textContent = "AI model unavailable";
-    if (dot) dot.classList.remove("online");
+    if (retries > 0) {
+      if (text) text.textContent = "Connecting to server...";
+      setTimeout(() => checkServerHealth(retries - 1), 3000);
+    } else {
+      if (text) text.textContent = "AI model offline";
+      if (dot) dot.classList.remove("online");
+    }
   }
 }
 
@@ -434,19 +443,30 @@ async function runAnalysisWorkflow() {
   formData.append("referring_doctor", $("refDoctor") ? $("refDoctor").value.trim() : "");
 
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 90000);
+
     const res = await fetch(`${API_BASE}/predict`, {
       method: "POST",
       body: formData,
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
 
     if (requestId !== currentRequestId) return;
 
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
+    let data;
+    try {
+      data = await res.json();
+    } catch (parseErr) {
+      throw new Error(`Server returned HTTP ${res.status} invalid response.`);
+    }
 
     if (requestId !== currentRequestId) return;
 
-    if (!data.success) throw new Error(data.error || "Analysis failed");
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || `Analysis failed (HTTP ${res.status})`);
+    }
 
     lastResultData = data;
     lastResultData.patient_info = getPatientInfo();
@@ -462,7 +482,8 @@ async function runAnalysisWorkflow() {
   } catch (err) {
     if (requestId !== currentRequestId) return;
     $("loadingOverlay").classList.add("hidden");
-    alert(`Analysis unavailable\n\nUnable to obtain a valid model prediction: ${err.message}`);
+    const errorMsg = err.name === "AbortError" ? "Request timed out after 90s. Please try again." : err.message;
+    alert(`Analysis unavailable\n\nUnable to obtain a valid model prediction: ${errorMsg}`);
   } finally {
     isAnalyzing = false;
     if (selectedFile && $("previewCard") && !$("previewCard").classList.contains("hidden")) {
