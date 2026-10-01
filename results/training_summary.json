@@ -1,0 +1,22 @@
+{
+  "baseline_cnn": {
+    "train_time_sec": 425.88,
+    "param_count": 423748,
+    "final_val_acc": 0.885
+  },
+  "resnet50": {
+    "train_time_sec": 736.59,
+    "param_count": 24121476,
+    "final_val_acc": 0.942
+  },
+  "efficientnetb0": {
+    "train_time_sec": 239.69,
+    "param_count": 4383655,
+    "final_val_acc": 0.985
+  },
+  "mobilenetv2": {
+    "train_time_sec": 182.01,
+    "param_count": 2592068,
+    "final_val_acc": 0.951
+  }
+}

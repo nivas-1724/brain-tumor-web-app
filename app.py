@@ -20,10 +20,11 @@ from flask_cors import CORS
 from PIL import Image
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-ROOT_DIR = os.path.dirname(BASE_DIR)
-sys.path.insert(0, ROOT_DIR)
-sys.path.insert(0, os.path.join(ROOT_DIR, "model"))
+ROOT_DIR = BASE_DIR
 sys.path.insert(0, BASE_DIR)
+sys.path.insert(0, os.path.join(BASE_DIR, "model"))
+sys.path.insert(0, os.path.join(BASE_DIR, "backend"))
+sys.path.insert(0, os.path.join(BASE_DIR, "experiments"))
 
 from model.predict import predict
 from report import generate_report
@@ -104,7 +105,7 @@ try:
 except Exception as _preload_err:
     print(f"[STARTUP] Model pre-loading warning: {_preload_err}")
 
-app = Flask(__name__, static_folder="../frontend", static_url_path="")
+app = Flask(__name__, static_folder="frontend", static_url_path="")
 CORS(app, resources={r"/api/*": {"origins": "*"}})
 
 ALLOWED_EXTENSIONS = {".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".webp", ".dcm"}

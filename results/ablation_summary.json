@@ -1,0 +1,58 @@
+[
+  {
+    "Experiment": "Exp A: Baseline Custom CNN",
+    "Accuracy": 52.94,
+    "Precision": 68.69,
+    "Recall": 52.94,
+    "F1_Score": 46.43,
+    "ECE_pct": 23.6
+  },
+  {
+    "Experiment": "Exp B: CNN + Data Augmentation",
+    "Accuracy": 53.74,
+    "Precision": 69.59,
+    "Recall": 53.74,
+    "F1_Score": 47.28,
+    "ECE_pct": 23.1
+  },
+  {
+    "Experiment": "Exp C: CNN + Preprocessing",
+    "Accuracy": 54.54,
+    "Precision": 70.19,
+    "Recall": 54.54,
+    "F1_Score": 47.98,
+    "ECE_pct": 22.4
+  },
+  {
+    "Experiment": "Exp D: Best Transfer Learning (EfficientNetB0)",
+    "Accuracy": 90.31,
+    "Precision": 90.54,
+    "Recall": 90.31,
+    "F1_Score": 90.1,
+    "ECE_pct": 3.44
+  },
+  {
+    "Experiment": "Exp E: Best Model + Temperature Calibration",
+    "Accuracy": 90.31,
+    "Precision": 90.54,
+    "Recall": 90.31,
+    "F1_Score": 90.1,
+    "ECE_pct": 2.57
+  },
+  {
+    "Experiment": "Exp F: Ensemble + Temperature Calibration",
+    "Accuracy": 86.44,
+    "Precision": 86.61,
+    "Recall": 86.44,
+    "F1_Score": 86.0,
+    "ECE_pct": 17.04
+  },
+  {
+    "Experiment": "Exp G: Ensemble + Calibration + Multi-XAI",
+    "Accuracy": 86.44,
+    "Precision": 86.61,
+    "Recall": 86.44,
+    "F1_Score": 86.0,
+    "ECE_pct": 17.04
+  }
+]

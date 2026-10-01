@@ -1,0 +1,8 @@
+transformation,accuracy,f1_score,avg_confidence,confidence_change_pct,stability_pct
+Original,87.0,86.37,92.71,0.0,100.0
+Brightness,87.33,86.58,93.25,0.54,97.0
+Contrast,87.67,87.2,91.46,-1.25,94.0
+Noise,74.0,71.95,88.12,-4.58,78.67
+Rotation,79.67,80.03,86.41,-6.3,83.67
+Compression,80.0,78.8,86.92,-5.78,84.33
+Blur,74.33,73.94,84.67,-8.03,80.33

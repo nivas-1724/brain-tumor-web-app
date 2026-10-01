@@ -1,0 +1,58 @@
+[
+  {
+    "transformation": "Original",
+    "accuracy": 87.0,
+    "f1_score": 86.37,
+    "avg_confidence": 92.71,
+    "confidence_change_pct": 0.0,
+    "stability_pct": 100.0
+  },
+  {
+    "transformation": "Brightness",
+    "accuracy": 87.33,
+    "f1_score": 86.58,
+    "avg_confidence": 93.25,
+    "confidence_change_pct": 0.54,
+    "stability_pct": 97.0
+  },
+  {
+    "transformation": "Contrast",
+    "accuracy": 87.67,
+    "f1_score": 87.2,
+    "avg_confidence": 91.46,
+    "confidence_change_pct": -1.25,
+    "stability_pct": 94.0
+  },
+  {
+    "transformation": "Noise",
+    "accuracy": 74.0,
+    "f1_score": 71.95,
+    "avg_confidence": 88.12,
+    "confidence_change_pct": -4.58,
+    "stability_pct": 78.67
+  },
+  {
+    "transformation": "Rotation",
+    "accuracy": 79.67,
+    "f1_score": 80.03,
+    "avg_confidence": 86.41,
+    "confidence_change_pct": -6.3,
+    "stability_pct": 83.67
+  },
+  {
+    "transformation": "Compression",
+    "accuracy": 80.0,
+    "f1_score": 78.8,
+    "avg_confidence": 86.92,
+    "confidence_change_pct": -5.78,
+    "stability_pct": 84.33
+  },
+  {
+    "transformation": "Blur",
+    "accuracy": 74.33,
+    "f1_score": 73.94,
+    "avg_confidence": 84.67,
+    "confidence_change_pct": -8.03,
+    "stability_pct": 80.33
+  }
+]

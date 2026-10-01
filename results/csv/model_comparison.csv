@@ -1,0 +1,6 @@
+Model,Accuracy,Precision,Recall,F1_Score,Glioma_Recall,Meningioma_Recall,NoTumor_Recall,Pituitary_Recall,Parameters,Inference_Time_ms
+Baseline_CNN,52.94,68.69,52.94,46.43,82.75,0.5,61.75,66.75,423748,4.82
+ResNet50,56.94,64.86,56.94,56.61,73.75,47.25,74.0,32.75,24121476,21.76
+EfficientNetB0,90.31,90.54,90.31,90.1,75.0,89.75,99.75,96.75,4383655,9.21
+MobileNetV2,84.25,84.94,84.25,83.6,81.5,58.5,97.5,99.5,2592068,6.54
+Ensemble,88.19,88.11,88.19,87.91,80.75,75.25,98.25,98.5,31520947,40.69

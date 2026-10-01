@@ -1,0 +1,332 @@
+{
+  "Baseline_CNN": {
+    "accuracy": 52.94,
+    "precision_macro": 68.69,
+    "recall_macro": 52.94,
+    "f1_macro": 46.43,
+    "precision_weighted": 68.69,
+    "recall_weighted": 52.94,
+    "f1_weighted": 46.43,
+    "per_class": {
+      "glioma": {
+        "precision": 41.02,
+        "recall": 82.75,
+        "f1_score": 54.85
+      },
+      "meningioma": {
+        "precision": 100.0,
+        "recall": 0.5,
+        "f1_score": 1.0
+      },
+      "notumor": {
+        "precision": 76.95,
+        "recall": 61.75,
+        "f1_score": 68.52
+      },
+      "pituitary": {
+        "precision": 56.81,
+        "recall": 66.75,
+        "f1_score": 61.38
+      }
+    },
+    "confusion_matrix": [
+      [
+        331,
+        0,
+        20,
+        49
+      ],
+      [
+        234,
+        2,
+        54,
+        110
+      ],
+      [
+        109,
+        0,
+        247,
+        44
+      ],
+      [
+        133,
+        0,
+        0,
+        267
+      ]
+    ],
+    "total_test_samples": 1600,
+    "correct_predictions": 847,
+    "incorrect_predictions": 753,
+    "avg_confidence_correct": 81.67,
+    "avg_confidence_incorrect": 70.78,
+    "glioma_as_meningioma_errors": 0,
+    "meningioma_as_glioma_errors": 234,
+    "inference_time_ms": 4.82,
+    "parameters": 423748
+  },
+  "ResNet50": {
+    "accuracy": 56.94,
+    "precision_macro": 64.86,
+    "recall_macro": 56.94,
+    "f1_macro": 56.61,
+    "precision_weighted": 64.86,
+    "recall_weighted": 56.94,
+    "f1_weighted": 56.61,
+    "per_class": {
+      "glioma": {
+        "precision": 43.83,
+        "recall": 73.75,
+        "f1_score": 54.99
+      },
+      "meningioma": {
+        "precision": 46.1,
+        "recall": 47.25,
+        "f1_score": 46.67
+      },
+      "notumor": {
+        "precision": 79.78,
+        "recall": 74.0,
+        "f1_score": 76.78
+      },
+      "pituitary": {
+        "precision": 89.73,
+        "recall": 32.75,
+        "f1_score": 47.99
+      }
+    },
+    "confusion_matrix": [
+      [
+        295,
+        65,
+        34,
+        6
+      ],
+      [
+        162,
+        189,
+        41,
+        8
+      ],
+      [
+        75,
+        28,
+        296,
+        1
+      ],
+      [
+        141,
+        128,
+        0,
+        131
+      ]
+    ],
+    "total_test_samples": 1600,
+    "correct_predictions": 911,
+    "incorrect_predictions": 689,
+    "avg_confidence_correct": 76.3,
+    "avg_confidence_incorrect": 60.78,
+    "glioma_as_meningioma_errors": 65,
+    "meningioma_as_glioma_errors": 162,
+    "inference_time_ms": 21.76,
+    "parameters": 24121476
+  },
+  "EfficientNetB0": {
+    "accuracy": 90.31,
+    "precision_macro": 90.54,
+    "recall_macro": 90.31,
+    "f1_macro": 90.1,
+    "precision_weighted": 90.54,
+    "recall_weighted": 90.31,
+    "f1_weighted": 90.1,
+    "per_class": {
+      "glioma": {
+        "precision": 92.88,
+        "recall": 75.0,
+        "f1_score": 82.99
+      },
+      "meningioma": {
+        "precision": 83.29,
+        "recall": 89.75,
+        "f1_score": 86.4
+      },
+      "notumor": {
+        "precision": 90.89,
+        "recall": 99.75,
+        "f1_score": 95.11
+      },
+      "pituitary": {
+        "precision": 95.09,
+        "recall": 96.75,
+        "f1_score": 95.91
+      }
+    },
+    "confusion_matrix": [
+      [
+        300,
+        64,
+        29,
+        7
+      ],
+      [
+        17,
+        359,
+        11,
+        13
+      ],
+      [
+        0,
+        1,
+        399,
+        0
+      ],
+      [
+        6,
+        7,
+        0,
+        387
+      ]
+    ],
+    "total_test_samples": 1600,
+    "correct_predictions": 1445,
+    "incorrect_predictions": 155,
+    "avg_confidence_correct": 95.79,
+    "avg_confidence_incorrect": 74.82,
+    "glioma_as_meningioma_errors": 64,
+    "meningioma_as_glioma_errors": 17,
+    "inference_time_ms": 9.21,
+    "parameters": 4383655
+  },
+  "MobileNetV2": {
+    "accuracy": 84.25,
+    "precision_macro": 84.94,
+    "recall_macro": 84.25,
+    "f1_macro": 83.6,
+    "precision_weighted": 84.94,
+    "recall_weighted": 84.25,
+    "f1_weighted": 83.6,
+    "per_class": {
+      "glioma": {
+        "precision": 80.89,
+        "recall": 81.5,
+        "f1_score": 81.2
+      },
+      "meningioma": {
+        "precision": 84.78,
+        "recall": 58.5,
+        "f1_score": 69.23
+      },
+      "notumor": {
+        "precision": 97.99,
+        "recall": 97.5,
+        "f1_score": 97.74
+      },
+      "pituitary": {
+        "precision": 76.1,
+        "recall": 99.5,
+        "f1_score": 86.24
+      }
+    },
+    "confusion_matrix": [
+      [
+        326,
+        37,
+        8,
+        29
+      ],
+      [
+        70,
+        234,
+        0,
+        96
+      ],
+      [
+        6,
+        4,
+        390,
+        0
+      ],
+      [
+        1,
+        1,
+        0,
+        398
+      ]
+    ],
+    "total_test_samples": 1600,
+    "correct_predictions": 1348,
+    "incorrect_predictions": 252,
+    "avg_confidence_correct": 96.8,
+    "avg_confidence_incorrect": 81.12,
+    "glioma_as_meningioma_errors": 37,
+    "meningioma_as_glioma_errors": 70,
+    "inference_time_ms": 6.54,
+    "parameters": 2592068
+  },
+  "Ensemble": {
+    "accuracy": 88.19,
+    "precision_macro": 88.11,
+    "recall_macro": 88.19,
+    "f1_macro": 87.91,
+    "precision_weighted": 88.11,
+    "recall_weighted": 88.19,
+    "f1_weighted": 87.91,
+    "per_class": {
+      "glioma": {
+        "precision": 83.9,
+        "recall": 80.75,
+        "f1_score": 82.29
+      },
+      "meningioma": {
+        "precision": 88.27,
+        "recall": 75.25,
+        "f1_score": 81.24
+      },
+      "notumor": {
+        "precision": 92.91,
+        "recall": 98.25,
+        "f1_score": 95.5
+      },
+      "pituitary": {
+        "precision": 87.36,
+        "recall": 98.5,
+        "f1_score": 92.6
+      }
+    },
+    "confusion_matrix": [
+      [
+        323,
+        34,
+        22,
+        21
+      ],
+      [
+        55,
+        301,
+        8,
+        36
+      ],
+      [
+        5,
+        2,
+        393,
+        0
+      ],
+      [
+        2,
+        4,
+        0,
+        394
+      ]
+    ],
+    "total_test_samples": 1600,
+    "correct_predictions": 1411,
+    "incorrect_predictions": 189,
+    "avg_confidence_correct": 79.36,
+    "avg_confidence_incorrect": 54.92,
+    "glioma_as_meningioma_errors": 34,
+    "meningioma_as_glioma_errors": 55,
+    "inference_time_ms": 40.69,
+    "parameters": 31520947
+  }
+}
